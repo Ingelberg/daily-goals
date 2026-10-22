@@ -1,8 +1,11 @@
 package com.dailygoals;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.swing.BorderFactory;
@@ -79,11 +82,7 @@ class GoalEditor extends JPanel
 		days.setOpaque(false);
 		for (int i = 0; i < 7; i++)
 		{
-			JToggleButton day = new JToggleButton(DAY_LETTERS[i], true);
-			day.setFont(FontManager.getRunescapeSmallFont());
-			day.setFocusPainted(false);
-			day.setMargin(new Insets(1, 0, 1, 0));
-			day.setToolTipText(DAY_NAMES[i]);
+			DayButton day = new DayButton(DAY_LETTERS[i], DAY_NAMES[i]);
 			dayButtons[i] = day;
 			days.add(day);
 		}
@@ -313,5 +312,55 @@ class GoalEditor extends JPanel
 
 		revalidate();
 		repaint();
+	}
+
+	/**
+	 * A day toggle painted green when the goal counts that day and red when it doesn't. Painted
+	 * by hand because the client's look and feel ignores toggle button background colours.
+	 */
+	private static class DayButton extends JToggleButton
+	{
+		private static final Color ON = new Color(46, 125, 50);
+		private static final Color OFF = new Color(140, 45, 45);
+
+		private final String dayName;
+
+		DayButton(String letter, String dayName)
+		{
+			super(letter, true);
+			this.dayName = dayName;
+			setFont(FontManager.getRunescapeSmallFont());
+			setFocusPainted(false);
+			setRolloverEnabled(true);
+			setPreferredSize(new Dimension(20, 18));
+			updateTooltip();
+			addItemListener(e -> updateTooltip());
+		}
+
+		private void updateTooltip()
+		{
+			setToolTipText(dayName + ": " + (isSelected() ? "on" : "off"));
+		}
+
+		@Override
+		protected void paintComponent(Graphics g)
+		{
+			Color color = isSelected() ? ON : OFF;
+			g.setColor(getModel().isRollover() ? color.brighter() : color);
+			g.fillRect(0, 0, getWidth(), getHeight());
+
+			g.setFont(getFont());
+			g.setColor(Color.WHITE);
+			FontMetrics metrics = g.getFontMetrics();
+			int x = (getWidth() - metrics.stringWidth(getText())) / 2;
+			int y = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
+			g.drawString(getText(), x, y);
+		}
+
+		@Override
+		protected void paintBorder(Graphics g)
+		{
+			// The colour is the border
+		}
 	}
 }
