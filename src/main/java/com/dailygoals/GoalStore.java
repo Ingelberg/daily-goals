@@ -12,26 +12,40 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.RuneScapeProfile;
+import net.runelite.client.config.RuneScapeProfileType;
+import net.runelite.client.util.Text;
 
 /**
- * Reads and writes the plugin's data in RuneLite's config: the goal list (shared by all
- * accounts) and each account's progress (under its RuneScape profile).
+ * Reads and writes the plugin's data in RuneLite's config. Each character (RuneScape profile)
+ * has its own goals and progress.
  */
 @Slf4j
 @Singleton
 class GoalStore
 {
 	static final String GOALS_KEY = "goals";
-	private static final String PROGRESS_KEY = "progress";
+	static final String PROGRESS_KEY = "progress";
 	private static final Type GOAL_LIST_TYPE = new TypeToken<List<Goal>>()
 	{
 	}.getType();
 	private static final Type PROGRESS_TYPE = new TypeToken<Map<String, GoalProgress>>()
 	{
 	}.getType();
+
+	/**
+	 * Another character's goals, for copying to the current one.
+	 */
+	@Value
+	static class CharacterGoals
+	{
+		String name;
+		List<Goal> goals;
+	}
 
 	private final ConfigManager configManager;
 	private final Gson gson;
@@ -47,36 +61,77 @@ class GoalStore
 		this.gson = gson;
 	}
 
-	List<Goal> loadGoals()
+	List<Goal> loadGoals(String profile)
 	{
-		String json = configManager.getConfiguration(DailyGoalsConfig.GROUP, GOALS_KEY);
-		List<Goal> saved = null;
-		try
-		{
-			saved = json == null ? null : gson.fromJson(json, GOAL_LIST_TYPE);
-		}
-		catch (JsonParseException e)
-		{
-			log.warn("Couldn't read saved goals: {}", json, e);
-		}
-
-		List<Goal> goals = new ArrayList<>();
-		if (saved != null)
-		{
-			for (Goal goal : saved)
-			{
-				if (goal != null)
-				{
-					goals.add(fillDefaults(goal));
-				}
-			}
-		}
-		return goals;
+		return parseGoals(configManager.getConfiguration(DailyGoalsConfig.GROUP, profile, GOALS_KEY));
 	}
 
-	void saveGoals(List<Goal> goals)
+	void saveGoals(String profile, List<Goal> goals)
 	{
-		configManager.setConfiguration(DailyGoalsConfig.GROUP, GOALS_KEY, gson.toJson(goals));
+		configManager.setConfiguration(DailyGoalsConfig.GROUP, profile, GOALS_KEY, gson.toJson(goals));
+	}
+
+	/**
+	 * Goals used to be one list shared by every character. Give that list to the first character
+	 * that logs in without goals of its own, then remove it.
+	 */
+	void migrateSharedGoals(String profile)
+	{
+		String shared = configManager.getConfiguration(DailyGoalsConfig.GROUP, GOALS_KEY);
+		if (shared == null)
+		{
+			return;
+		}
+
+		if (configManager.getConfiguration(DailyGoalsConfig.GROUP, profile, GOALS_KEY) == null)
+		{
+			configManager.setConfiguration(DailyGoalsConfig.GROUP, profile, GOALS_KEY, shared);
+		}
+		configManager.unsetConfiguration(DailyGoalsConfig.GROUP, GOALS_KEY);
+	}
+
+	/**
+	 * Every other character that has goals, in RuneLite's profile order.
+	 */
+	List<CharacterGoals> otherCharacters(String currentProfile)
+	{
+		List<CharacterGoals> characters = new ArrayList<>();
+		for (RuneScapeProfile profile : configManager.getRSProfiles())
+		{
+			if (profile.getKey().equals(currentProfile))
+			{
+				continue;
+			}
+
+			List<Goal> goals = loadGoals(profile.getKey());
+			if (!goals.isEmpty())
+			{
+				characters.add(new CharacterGoals(characterName(profile), goals));
+			}
+		}
+		return characters;
+	}
+
+	/**
+	 * The character's name, with the world type for anything but normal worlds, e.g.
+	 * "Zezima (Deadman)".
+	 */
+	String characterName(String profileKey)
+	{
+		for (RuneScapeProfile profile : configManager.getRSProfiles())
+		{
+			if (profile.getKey().equals(profileKey))
+			{
+				return characterName(profile);
+			}
+		}
+		return "This character";
+	}
+
+	private static String characterName(RuneScapeProfile profile)
+	{
+		String name = profile.getDisplayName() == null ? "Unnamed character" : profile.getDisplayName();
+		return profile.getType() == RuneScapeProfileType.STANDARD ? name : name + " (" + Text.titleCase(profile.getType()) + ")";
 	}
 
 	/**
@@ -133,6 +188,32 @@ class GoalStore
 	void clearProgressCache()
 	{
 		savedProgress = null;
+	}
+
+	private List<Goal> parseGoals(@Nullable String json)
+	{
+		List<Goal> saved = null;
+		try
+		{
+			saved = json == null ? null : gson.fromJson(json, GOAL_LIST_TYPE);
+		}
+		catch (JsonParseException e)
+		{
+			log.warn("Couldn't read saved goals: {}", json, e);
+		}
+
+		List<Goal> goals = new ArrayList<>();
+		if (saved != null)
+		{
+			for (Goal goal : saved)
+			{
+				if (goal != null)
+				{
+					goals.add(fillDefaults(goal));
+				}
+			}
+		}
+		return goals;
 	}
 
 	/**

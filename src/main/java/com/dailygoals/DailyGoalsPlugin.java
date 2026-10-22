@@ -105,8 +105,11 @@ public class DailyGoalsPlugin extends Plugin
 	private DailyGoalsPanel panel;
 	private NavigationButton navButton;
 
-	/** The goals, in panel order. Replaced as a whole, so the Swing thread can read it. */
+	/** The logged-in character's goals, in panel order. Replaced as a whole, so the Swing thread can read it. */
 	private volatile List<Goal> goals = Collections.emptyList();
+	/** The character (RuneScape profile) {@link #goals} belong to; null while logged out. */
+	@Nullable
+	private volatile String goalsProfile;
 
 	/** Progress per goal id for the logged-in account; null while logged out. */
 	@Nullable
@@ -144,7 +147,6 @@ public class DailyGoalsPlugin extends Plugin
 		loginTicks = 0;
 		clientThread.invokeLater(() ->
 		{
-			goals = Collections.unmodifiableList(store.loadGoals());
 			if (client.getGameState() == GameState.LOGGED_IN)
 			{
 				loginTicks = LOGIN_SETTLE_TICKS;
@@ -160,14 +162,13 @@ public class DailyGoalsPlugin extends Plugin
 		clientThread.invokeLater(() ->
 		{
 			saveProgress();
-			clearProgress();
+			clearCharacter();
 			overlays.values().forEach(overlayManager::remove);
 			overlays.clear();
 			infoBoxes.values().forEach(infoBoxManager::removeInfoBox);
 			infoBoxes.clear();
 			icons.clear();
 			iconsRequested.clear();
-			goals = Collections.emptyList();
 			shownViews = null;
 		});
 	}
@@ -179,7 +180,7 @@ public class DailyGoalsPlugin extends Plugin
 		{
 			case LOGIN_SCREEN:
 				saveProgress();
-				clearProgress();
+				clearCharacter();
 				update();
 				// fall through
 			case LOGGING_IN:
@@ -193,16 +194,17 @@ public class DailyGoalsPlugin extends Plugin
 	@Subscribe
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
 	{
-		// Progress is saved as it changes; the next update loads the new account's
-		clearProgress();
+		// Goals and progress are saved as they change; the next update loads the new character's
+		clearCharacter();
 	}
 
 	@Subscribe
 	public void onProfileChanged(ProfileChanged event)
 	{
+		// A different RuneLite profile has different saved goals
 		clientThread.invokeLater(() ->
 		{
-			goals = Collections.unmodifiableList(store.loadGoals());
+			clearCharacter();
 			update();
 		});
 	}
@@ -271,7 +273,8 @@ public class DailyGoalsPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!DailyGoalsConfig.GROUP.equals(event.getGroup()))
+		// Progress is written by this plugin as it goes; that needs no reaction
+		if (!DailyGoalsConfig.GROUP.equals(event.getGroup()) || GoalStore.PROGRESS_KEY.equals(event.getKey()))
 		{
 			return;
 		}
@@ -281,7 +284,11 @@ public class DailyGoalsPlugin extends Plugin
 			switch (event.getKey())
 			{
 				case GoalStore.GOALS_KEY:
-					goals = Collections.unmodifiableList(store.loadGoals());
+					String profile = goalsProfile;
+					if (profile != null)
+					{
+						goals = Collections.unmodifiableList(store.loadGoals(profile));
+					}
 					break;
 				case "resetTime":
 				case "timeZone":
@@ -358,6 +365,30 @@ public class DailyGoalsPlugin extends Plugin
 	}
 
 	/**
+	 * Copy goals (from another character) to this character's list, as new goals.
+	 */
+	void addGoals(List<Goal> copies)
+	{
+		List<Goal> list = new ArrayList<>(goals);
+		for (Goal source : copies)
+		{
+			Goal goal = source.copy();
+			goal.setId(UUID.randomUUID().toString());
+			list.add(goal);
+		}
+		writeGoals(list);
+	}
+
+	/**
+	 * Every other character that has goals, for the panel's copy menu.
+	 */
+	List<GoalStore.CharacterGoals> otherCharacters()
+	{
+		String profile = goalsProfile;
+		return profile == null ? Collections.emptyList() : store.otherCharacters(profile);
+	}
+
+	/**
 	 * Start a goal's count for this period over from now. Also used by the overlay's menu.
 	 */
 	void restartPeriod(String goalId)
@@ -418,15 +449,18 @@ public class DailyGoalsPlugin extends Plugin
 	// Tracking
 
 	/**
-	 * Load the account's progress if needed, start a new period for goals whose reset has
-	 * passed, record XP, then bring the overlays, infoboxes and panel up to date.
+	 * Load the character's goals and progress if needed, start a new period for goals whose
+	 * reset has passed, record XP, then bring the overlays, infoboxes and panel up to date.
 	 */
 	private void update()
 	{
 		String profile = configManager.getRSProfileKey();
-		boolean tracking = profile != null
-			&& client.getGameState() == GameState.LOGGED_IN
-			&& loginTicks >= LOGIN_SETTLE_TICKS;
+		boolean loggedIn = profile != null && client.getGameState() == GameState.LOGGED_IN;
+		if (loggedIn && !profile.equals(goalsProfile))
+		{
+			loadCharacter(profile);
+		}
+		boolean tracking = loggedIn && loginTicks >= LOGIN_SETTLE_TICKS;
 
 		if (tracking)
 		{
@@ -613,18 +647,42 @@ public class DailyGoalsPlugin extends Plugin
 		}
 	}
 
-	private void clearProgress()
+	/**
+	 * A character logged in: load its goals (taking over the old shared list if it's the first).
+	 */
+	private void loadCharacter(String profile)
+	{
+		store.migrateSharedGoals(profile);
+		goals = Collections.unmodifiableList(store.loadGoals(profile));
+		goalsProfile = profile;
+		String name = store.characterName(profile);
+		SwingUtilities.invokeLater(() -> panel.setCharacter(name));
+	}
+
+	/**
+	 * Logged out or switched: forget the character's goals and progress until the next login.
+	 */
+	private void clearCharacter()
 	{
 		progress = null;
 		progressProfile = null;
 		store.clearProgressCache();
 		rates.clear();
+		goals = Collections.emptyList();
+		goalsProfile = null;
+		SwingUtilities.invokeLater(() -> panel.setCharacter(null));
 	}
 
 	private void writeGoals(List<Goal> list)
 	{
+		String profile = goalsProfile;
+		if (profile == null)
+		{
+			// Logged out; the panel doesn't offer changes then
+			return;
+		}
 		goals = Collections.unmodifiableList(list);
-		store.saveGoals(list);
+		store.saveGoals(profile, list);
 	}
 
 	// Display
