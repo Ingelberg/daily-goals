@@ -28,6 +28,22 @@ final class Formats
 	}
 
 	/**
+	 * {@code value} as a percentage of {@code target}: "45.0%".
+	 */
+	static String percent(long value, long target)
+	{
+		return String.format("%.1f%%", ratio(value, target));
+	}
+
+	/**
+	 * Whole percent, rounded down so it doesn't read 100% before it's done: "45%", for the infobox.
+	 */
+	static String shortPercent(long value, long target)
+	{
+		return (long) Math.floor(ratio(value, target)) + "%";
+	}
+
+	/**
 	 * "1h 23m", "23m", "<1m" or "5d"; "-" when unknown (negative).
 	 */
 	static String duration(long millis)
@@ -55,5 +71,18 @@ final class Formats
 	static String pace(long pace)
 	{
 		return (pace >= 0 ? "+" : "-") + number(Math.abs(pace));
+	}
+
+	/**
+	 * Pace as a percentage of the target: "+12.0%" or "-5.0%".
+	 */
+	static String pacePercent(long pace, long target)
+	{
+		return (pace >= 0 ? "+" : "-") + percent(Math.abs(pace), target);
+	}
+
+	private static double ratio(long value, long target)
+	{
+		return target <= 0 ? 100 : 100.0 * value / target;
 	}
 }

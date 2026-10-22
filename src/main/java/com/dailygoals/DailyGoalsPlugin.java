@@ -658,7 +658,7 @@ public class DailyGoalsPlugin extends Plugin
 		Set<String> wanted = new HashSet<>();
 		for (Goal goal : goals)
 		{
-			if (config.showOverlays() && goal.isEnabled() && goal.isOverlay() && goal.targetKey() != null)
+			if (config.show().isOverlays() && goal.isEnabled() && goal.isOverlay() && goal.targetKey() != null)
 			{
 				wanted.add(goal.getId());
 				overlays.computeIfAbsent(goal.getId(), id ->
@@ -688,7 +688,7 @@ public class DailyGoalsPlugin extends Plugin
 		{
 			String key = goal.targetKey();
 			BufferedImage icon = getIcon(goal);
-			if (!config.showInfoboxes() || !goal.isEnabled() || !goal.isInfobox() || key == null || icon == null)
+			if (!config.show().isInfoboxes() || !goal.isEnabled() || !goal.isInfobox() || key == null || icon == null)
 			{
 				continue;
 			}
@@ -697,7 +697,7 @@ public class DailyGoalsPlugin extends Plugin
 			DailyGoalsInfoBox infoBox = infoBoxes.get(goal.getId());
 			if (infoBox == null)
 			{
-				infoBox = new DailyGoalsInfoBox(icon, this, goal.getId(), key);
+				infoBox = new DailyGoalsInfoBox(icon, this, config, goal.getId(), key);
 				infoBoxes.put(goal.getId(), infoBox);
 				infoBoxManager.addInfoBox(infoBox);
 			}

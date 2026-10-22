@@ -7,11 +7,12 @@ import lombok.Setter;
 import net.runelite.client.ui.overlay.infobox.InfoBox;
 
 /**
- * Shows the XP or count left for one goal, or how far past it you are ("+10K").
+ * Shows the XP or count left for one goal (or the percent done), or how far past it you are ("+10K").
  */
 class DailyGoalsInfoBox extends InfoBox
 {
 	private final DailyGoalsPlugin plugin;
+	private final DailyGoalsConfig config;
 	private final String goalId;
 
 	/** {@link Goal#targetKey()} the image was made for, so a changed goal gets a new icon. */
@@ -19,10 +20,11 @@ class DailyGoalsInfoBox extends InfoBox
 	@Setter
 	private String iconTarget;
 
-	DailyGoalsInfoBox(BufferedImage image, DailyGoalsPlugin plugin, String goalId, String iconTarget)
+	DailyGoalsInfoBox(BufferedImage image, DailyGoalsPlugin plugin, DailyGoalsConfig config, String goalId, String iconTarget)
 	{
 		super(image, plugin);
 		this.plugin = plugin;
+		this.config = config;
 		this.goalId = goalId;
 		this.iconTarget = iconTarget;
 	}
@@ -35,11 +37,17 @@ class DailyGoalsInfoBox extends InfoBox
 		{
 			return null;
 		}
+		// The Values setting: XP / count left, or percent done
+		boolean percent = config.valueFormat() == DailyGoalsConfig.ValueFormat.PERCENT;
 		if (status.getOver() > 0)
 		{
-			return "+" + Formats.shortNumber(status.getOver());
+			return "+" + (percent ? Formats.shortPercent(status.getOver(), status.getTarget()) : Formats.shortNumber(status.getOver()));
 		}
-		return status.isComplete() ? "Done" : Formats.shortNumber(status.getLeft());
+		if (status.isComplete())
+		{
+			return "Done";
+		}
+		return percent ? Formats.shortPercent(status.getDone(), status.getTarget()) : Formats.shortNumber(status.getLeft());
 	}
 
 	@Override

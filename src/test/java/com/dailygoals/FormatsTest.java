@@ -23,6 +23,18 @@ public class FormatsTest
 	}
 
 	@Test
+	public void percentages()
+	{
+		assertEquals("45.0%", Formats.percent(45_000, 100_000));
+		assertEquals("110.0%", Formats.percent(110, 100));
+		// Rounded down, so it never reads 100% before the goal is done
+		assertEquals("99%", Formats.shortPercent(99_999, 100_000));
+		assertEquals("10%", Formats.shortPercent(10_000, 100_000));
+		assertEquals("+12.0%", Formats.pacePercent(12, 100));
+		assertEquals("-5.0%", Formats.pacePercent(-5, 100));
+	}
+
+	@Test
 	public void pace()
 	{
 		assertEquals("+12,000", Formats.pace(12_000));

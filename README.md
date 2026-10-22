@@ -40,7 +40,8 @@ In game, each goal can have:
 - **Weekend multiplier**: scales daily goals on Saturday and Sunday; 100% is off.
 
 **Display**
-- **Show infoboxes** / **Show overlays**: master switches.
+- **Show**: infoboxes, overlays or both.
+- **Values**: amounts as XP / count, or as a percentage of the goal. Applies to infoboxes and the overlay's Done, Left and Pace lines.
 - **Hide overlay when done** and **Pace colours**.
 - **Overlay lines**: Done, Left, Goal, Progress, XP/h, Done in or Pace.
 - **Notifications**: when a goal is done, and optionally at 50% / 75%.

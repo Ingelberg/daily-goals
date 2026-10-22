@@ -101,24 +101,28 @@ class DailyGoalsOverlay extends OverlayPanel
 		return super.getName() + goalId;
 	}
 
-	private static LineComponent line(DailyGoalsConfig.DisplayLine line, GoalStatus status)
+	private LineComponent line(DailyGoalsConfig.DisplayLine line, GoalStatus status)
 	{
+		// The Values setting: Done, Left and Pace as XP / count, or as a percentage of the goal
+		boolean percent = config.valueFormat() == DailyGoalsConfig.ValueFormat.PERCENT;
+		long target = status.getTarget();
+
 		String value;
 		Color color = Color.WHITE;
 		switch (line)
 		{
 			case DONE:
-				value = Formats.number(status.getDone());
+				value = percent ? Formats.percent(status.getDone(), target) : Formats.number(status.getDone());
 				break;
 			case LEFT:
 				if (status.getOver() > 0)
 				{
-					value = "+" + Formats.number(status.getOver());
+					value = "+" + (percent ? Formats.percent(status.getOver(), target) : Formats.number(status.getOver()));
 					color = GOOD;
 				}
 				else
 				{
-					value = Formats.number(status.getLeft());
+					value = percent ? Formats.percent(status.getLeft(), target) : Formats.number(status.getLeft());
 				}
 				break;
 			case GOAL:
@@ -131,21 +135,22 @@ class DailyGoalsOverlay extends OverlayPanel
 				value = status.isComplete() ? "Done" : Formats.duration(status.getEtaMillis());
 				break;
 			case PACE:
-				value = status.isComplete() ? "Done" : Formats.pace(status.getPace());
+				value = status.isComplete() ? "Done"
+					: percent ? Formats.pacePercent(status.getPace(), target) : Formats.pace(status.getPace());
 				color = status.isComplete() || status.getPace() >= 0 ? GOOD : DailyGoalsPlugin.BEHIND_PACE_COLOR;
 				break;
 			case PERCENT:
 			default:
 				// Past the goal it shows how far over, e.g. "+10.0%"
-				double percent = status.percent();
-				if (percent > 100)
+				double progress = status.percent();
+				if (progress > 100)
 				{
-					value = String.format("+%.1f%%", percent - 100);
+					value = String.format("+%.1f%%", progress - 100);
 					color = GOOD;
 				}
 				else
 				{
-					value = String.format("%.1f%%", percent);
+					value = String.format("%.1f%%", progress);
 				}
 				break;
 		}

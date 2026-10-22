@@ -113,6 +113,41 @@ public interface DailyGoalsConfig extends Config
 		}
 	}
 
+	@RequiredArgsConstructor
+	enum Show
+	{
+		INFOBOXES("Infoboxes", true, false),
+		OVERLAYS("Overlays", false, true),
+		BOTH("Both", true, true);
+
+		private final String label;
+		@Getter
+		private final boolean infoboxes;
+		@Getter
+		private final boolean overlays;
+
+		@Override
+		public String toString()
+		{
+			return label;
+		}
+	}
+
+	@RequiredArgsConstructor
+	enum ValueFormat
+	{
+		AMOUNT("XP / count"),
+		PERCENT("Percent");
+
+		private final String label;
+
+		@Override
+		public String toString()
+		{
+			return label;
+		}
+	}
+
 	@ConfigSection(
 		name = "Reset",
 		description = "When goals start over and what carries over",
@@ -193,27 +228,28 @@ public interface DailyGoalsConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "showInfoboxes",
-		name = "Show infoboxes",
-		description = "Show the amount-left infobox for goals that have Show infobox ticked",
+		keyName = "show",
+		name = "Show",
+		description = "Show infoboxes, overlays or both, for goals that have them ticked in the sidebar",
 		section = displaySection,
 		position = 0
 	)
-	default boolean showInfoboxes()
+	default Show show()
 	{
-		return true;
+		return Show.BOTH;
 	}
 
 	@ConfigItem(
-		keyName = "showOverlays",
-		name = "Show overlays",
-		description = "Show the on-screen box for goals that have Show overlay ticked",
+		keyName = "valueFormat",
+		name = "Values",
+		description = "Show amounts as XP / count or as a percentage of the goal,"
+			+ " on infoboxes and the overlay's Done, Left and Pace lines",
 		section = displaySection,
 		position = 1
 	)
-	default boolean showOverlays()
+	default ValueFormat valueFormat()
 	{
-		return true;
+		return ValueFormat.AMOUNT;
 	}
 
 	@ConfigItem(
