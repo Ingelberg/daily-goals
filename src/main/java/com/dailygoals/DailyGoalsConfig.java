@@ -134,6 +134,27 @@ public interface DailyGoalsConfig extends Config
 	}
 
 	@RequiredArgsConstructor
+	enum HideWhenComplete
+	{
+		NOTHING("Nothing", false, false),
+		OVERLAYS("Overlays", false, true),
+		INFOBOXES("Infoboxes", true, false),
+		BOTH("Both", true, true);
+
+		private final String label;
+		@Getter
+		private final boolean infoboxes;
+		@Getter
+		private final boolean overlays;
+
+		@Override
+		public String toString()
+		{
+			return label;
+		}
+	}
+
+	@RequiredArgsConstructor
 	enum ValueFormat
 	{
 		AMOUNT("XP / count"),
@@ -253,15 +274,16 @@ public interface DailyGoalsConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "hideWhenDone",
-		name = "Hide overlay when done",
-		description = "Hide a goal's overlay once it's reached for the day; the infobox stays",
+		keyName = "hideWhenComplete",
+		name = "Hide when complete",
+		description = "Hide a goal's overlay, infobox or both once it's reached for the day (or week)."
+			+ " Its card in the sidebar stays",
 		section = displaySection,
 		position = 2
 	)
-	default boolean hideWhenDone()
+	default HideWhenComplete hideWhenComplete()
 	{
-		return false;
+		return HideWhenComplete.NOTHING;
 	}
 
 	@ConfigItem(

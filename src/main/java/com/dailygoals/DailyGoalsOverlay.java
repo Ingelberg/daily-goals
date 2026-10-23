@@ -56,7 +56,7 @@ class DailyGoalsOverlay extends OverlayPanel
 	{
 		GoalStatus status = plugin.status(goalId);
 		BufferedImage icon = status == null ? null : plugin.getIcon(status.getGoal());
-		if (status == null || icon == null || !status.isActive() || (config.hideWhenDone() && status.isComplete()))
+		if (status == null || icon == null || !status.isActive() || (config.hideWhenComplete().isOverlays() && status.isComplete()))
 		{
 			return null;
 		}

@@ -102,7 +102,8 @@ class DailyGoalsInfoBox extends InfoBox
 	public boolean render()
 	{
 		GoalStatus status = plugin.status(goalId);
-		return status != null && status.isActive();
+		return status != null && status.isActive()
+			&& !(config.hideWhenComplete().isInfoboxes() && status.isComplete());
 	}
 
 	@Override
